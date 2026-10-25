@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Carmageddon II — Web</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; background: #000; color: #ddd; font: 14px system-ui, sans-serif; overflow: hidden; overscroll-behavior: none; }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { display: block; width: min(100vw, calc(100vh * 4 / 3)); height: min(100vh, calc(100vw * 3 / 4)); outline: none; background: #000; touch-action: none; }
+  #hud { position: fixed; top: 8px; left: 8px; padding: 4px 8px; background: rgba(0,0,0,.6); border-radius: 4px; font: 12px ui-monospace, monospace; z-index: 5; pointer-events: none; }
+  #hud.off { display: none; }
+  #help { position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%); padding: 4px 10px; background: rgba(0,0,0,.6); border-radius: 4px; font: 12px system-ui, sans-serif; z-index: 5; transition: opacity 1s; pointer-events: none; white-space: nowrap; }
+  #help.hidden { opacity: 0; }
+  #net { position: fixed; top: 8px; right: 8px; padding: 4px 8px; background: rgba(0,0,0,.6); border-radius: 4px; font: 12px system-ui, sans-serif; z-index: 5; pointer-events: none; display: none; }
+  #net.on { display: block; }
+  #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #050505; z-index: 10; }
+  #loading.hidden { display: none; }
+
+  #touch { position: fixed; inset: 0; z-index: 6; pointer-events: none; display: none; user-select: none; -webkit-user-select: none; }
+  body.touch #touch { display: block; }
+  body.touch #help { display: none; }
+  #touch { --arrow: min(24vh, 24vw); --gas: min(19vh, 19vw); --mid: min(14vh, 14vw); --sm: min(11vh, 11vw); --l: env(safe-area-inset-left, 0px); --r: env(safe-area-inset-right, 0px); }
+  .tb { position: absolute; pointer-events: auto; display: flex; align-items: center; justify-content: center; box-sizing: border-box;
+        border: 2px solid rgba(255,255,255,.22); background: rgba(20,20,20,.16); color: rgba(255,255,255,.72);
+        font-family: system-ui, -apple-system, sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0;
+        white-space: nowrap; overflow: hidden; border-radius: 50%; touch-action: none; }
+  .tb.on { background: rgba(255,170,40,.38); border-color: rgba(255,210,120,.65); color: #fff; }
+  .tb svg { width: 58%; height: 58%; fill: currentColor; }
+  .arrow { width: var(--arrow); height: var(--arrow); }
+  .big { width: var(--gas); height: var(--gas); font-size: calc(var(--gas) * .2); }
+  .mid { width: var(--mid); height: var(--mid); font-size: calc(var(--mid) * .19); }
+  .sm  { width: var(--sm); height: var(--sm); font-size: calc(var(--sm) * .2); border-radius: 28%; }
+  #t-left  { left: calc(var(--l) + 2.5vw); bottom: 5vh; }
+  #t-right { left: calc(var(--l) + 2.5vw + var(--arrow) + 2vw); bottom: 5vh; }
+  #t-gas   { right: calc(var(--r) + 3vw); bottom: calc(6vh + var(--mid) * .55); }
+  #t-brake { right: calc(var(--r) + 3vw + var(--gas) + 2vw); bottom: 4vh; }
+  #t-hand  { right: calc(var(--r) + 3vw + var(--gas) + 2vw); bottom: calc(4vh + var(--mid) + 2vh); }
+  #t-esc   { left: calc(var(--l) + 2vw); top: 22vh; }
+  #t-ok    { left: calc(var(--l) + 2vw); top: calc(22vh + var(--sm) + 2vh); }
+  #t-view  { right: calc(var(--r) + 2vw); top: 22vh; }
+  #t-fix   { right: calc(var(--r) + 2vw); top: calc(22vh + var(--sm) + 2vh); }
+  #t-rec   { right: calc(var(--r) + 2vw); top: calc(22vh + (var(--sm) + 2vh) * 2); }
+  #rotate { position: fixed; inset: 0; z-index: 20; display: none; flex-direction: column; gap: 28px; align-items: center; justify-content: center; text-align: center; background: #050505; color: #ddd; font: 600 17px system-ui, -apple-system, sans-serif; padding: 24px; }
+  #rotate svg { width: 120px; height: 120px; overflow: visible; }
+  #rotate .phone { transform-origin: 60px 60px; animation: rot 2.6s ease-in-out infinite; }
+  #rotate .arc { stroke-dasharray: 60; stroke-dashoffset: 60; animation: arc 2.6s ease-in-out infinite; }
+  @keyframes rot { 0%, 20% { transform: rotate(0deg); } 55%, 80% { transform: rotate(-90deg); } 100% { transform: rotate(0deg); } }
+  @keyframes arc { 0%, 15% { stroke-dashoffset: 60; opacity: 1; } 50% { stroke-dashoffset: 0; opacity: 1; } 80%, 100% { stroke-dashoffset: 0; opacity: 0; } }
+  #rotate .head { opacity: 0; animation: head 2.6s ease-in-out infinite; }
+  @keyframes head { 0%, 40% { opacity: 0; } 50%, 75% { opacity: 1; } 85%, 100% { opacity: 0; } }
+  @media (orientation: portrait) { body.touch #rotate { display: flex; } }
+</style>
+</head>
+<body>
+<div id="loading"><p id="loading-text">Loading…</p></div>
+<div id="hud">…</div>
+<div id="net"></div>
+<div id="help">Double-click / Alt+Enter — fullscreen · arrows — drive · Num 8/2/4/6 — minimap · gamepad supported</div>
+<div id="wrap"><canvas id="canvas" width="640" height="480" tabindex="0" oncontextmenu="event.preventDefault()"></canvas></div>
+<div id="touch">
+  <div class="tb arrow" id="t-left" data-k="left"><svg viewBox="0 0 24 24"><path d="M15.5 4 7 12l8.5 8z"/></svg></div>
+  <div class="tb arrow" id="t-right" data-k="right"><svg viewBox="0 0 24 24"><path d="M8.5 4 17 12l-8.5 8z"/></svg></div>
+  <div class="tb big" id="t-gas" data-k="up">Gas</div>
+  <div class="tb mid" id="t-brake" data-k="down">Brake</div>
+  <div class="tb mid" id="t-hand" data-k="space">Hand</div>
+  <div class="tb sm" id="t-esc" data-k="esc">Esc</div>
+  <div class="tb sm" id="t-ok" data-k="enter">OK</div>
+  <div class="tb sm" id="t-view" data-k="view">View</div>
+  <div class="tb sm" id="t-fix" data-k="fix">Fix</div>
+  <div class="tb sm" id="t-rec" data-k="rec">Reset</div>
+</div>
+<div id="rotate">
+  <svg viewBox="0 0 120 120">
+    <path class="arc" d="M 98 34 A 46 46 0 0 0 60 14" fill="none" stroke="#f0a020" stroke-width="4" stroke-linecap="round"/>
+    <path class="head" d="M 60 14 l 8 -5 M 60 14 l 7 6" fill="none" stroke="#f0a020" stroke-width="4" stroke-linecap="round"/>
+    <g class="phone">
+      <rect x="40" y="22" width="40" height="76" rx="7" fill="none" stroke="#e8e8e8" stroke-width="4"/>
+      <line x1="54" y1="30" x2="66" y2="30" stroke="#e8e8e8" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="60" cy="89" r="3.5" fill="#e8e8e8"/>
+    </g>
+  </svg>
+  <div>Rotate your device to landscape</div>
+</div>
+<script>
+  var canvas = document.getElementById('canvas');
+  var Q = new URLSearchParams(location.search);
+  canvas.addEventListener('click', function () { canvas.focus(); });
+  function toggleFullscreen() {
+    var el = document.documentElement;
+    if (!document.fullscreenElement) { (el.requestFullscreen || el.webkitRequestFullscreen).call(el); }
+    else { (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
+  }
+  canvas.addEventListener('dblclick', toggleFullscreen);
+  window.addEventListener('keydown', function (e) { if (e.altKey && e.code === 'Enter') { e.preventDefault(); e.stopImmediatePropagation(); toggleFullscreen(); } }, true);
+  if (Q.get('stats') !== '1') document.getElementById('hud').classList.add('off');
+
+  (function () {
+    var force = Q.get('touch');
+    var isTouch = force === '1' || (force !== '0' && ((window.matchMedia && matchMedia('(pointer: coarse)').matches) || (navigator.maxTouchPoints > 0 && 'ontouchstart' in window && !matchMedia('(pointer: fine)').matches)));
+    if (!isTouch) return;
+    document.body.classList.add('touch');
+    document.getElementById('hud').classList.add('off');
+    var KEYS = { left: [0xcb, 0x25], right: [0xcd, 0x27], up: [0xc8, 0x26], down: [0xd0, 0x28], space: [0x39, 0x20],
+                 esc: [0x01, 0x1b], enter: [0x1c, 0x0d], view: [0x2e, 0x43], fix: [0x0e, 0x08], rec: [0xd2, 0x2d] };
+    var held = {};
+    var touchKey = {};
+    var buttons = [].slice.call(document.querySelectorAll('#touch .tb'));
+    function sendKey(k, down) {
+      var f = window._emu_js_key || Module._emu_js_key;
+      if (f) f(KEYS[k][0], KEYS[k][1], down ? 1 : 0);
+    }
+    function setHeld(k, delta) {
+      var before = held[k] || 0, after = Math.max(0, before + delta);
+      held[k] = after;
+      if (!before && after) sendKey(k, true);
+      if (before && !after) sendKey(k, false);
+      buttons.forEach(function (b) { if (b.dataset.k === k) b.classList.toggle('on', after > 0); });
+    }
+    function keyAt(x, y) {
+      for (var i = 0; i < buttons.length; i++) {
+        var r = buttons[i].getBoundingClientRect(), pad = 6;
+        if (x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad) return buttons[i].dataset.k;
+      }
+      return null;
+    }
+    var first = true;
+    function firstTouch() {
+      if (!first) return;
+      first = false;
+      try {
+        var el = document.documentElement, p = (el.requestFullscreen || el.webkitRequestFullscreen);
+        if (p && !document.fullscreenElement) {
+          var r = p.call(el);
+          if (r && r.then) r.then(function () { try { screen.orientation.lock('landscape').catch(function () {}); } catch (e) {} }).catch(function () {});
+        }
+      } catch (e) {}
+    }
+    var ptrTouch = null;
+    function toPointer(t, btn) {
+      var r = canvas.getBoundingClientRect(), f = window._emu_js_pointer || Module._emu_js_pointer;
+      if (f) f((t.clientX - r.left) / r.width, (t.clientY - r.top) / r.height, btn);
+    }
+    function onTouch(e) {
+      firstTouch();
+      e.preventDefault();
+      for (var i = 0; i < e.changedTouches.length; i++) {
+        var t = e.changedTouches[i], id = t.identifier;
+        var end = e.type === 'touchend' || e.type === 'touchcancel';
+        var k = end ? null : keyAt(t.clientX, t.clientY);
+        if (e.type === 'touchstart' && !k) {
+          if (ptrTouch === null) { ptrTouch = id; toPointer(t, 0); toPointer(t, 1); }
+          continue;
+        }
+        if (id === ptrTouch) {
+          if (end) { toPointer(t, 0); ptrTouch = null; } else toPointer(t, 1);
+          continue;
+        }
+        var prev = touchKey[id] || null;
+        if (prev !== k) {
+          if (prev) setHeld(prev, -1);
+          if (k) setHeld(k, +1);
+          if (k) touchKey[id] = k; else delete touchKey[id];
+        }
+      }
+    }
+    ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(function (n) { document.addEventListener(n, onTouch, { passive: false }); });
+    window.addEventListener('blur', function () { for (var id in touchKey) setHeld(touchKey[id], -1); touchKey = {}; });
+  })();
+
+  window.__log = [];
+  function logline(s) { window.__log.push(String(s).slice(0, 300)); if (window.__log.length > 2000) window.__log.splice(0, 500); }
+  var Module = {
+    canvas: canvas,
+    noRaster: location.search.indexOf('noraster') >= 0,
+    glideScale: +(Q.get('scale') || 2),
+    glideMsaa: +(Q.get('msaa') || 4),
+    glideFilter: +(Q.get('filter') || 1),
+    glideWide: Q.get('wide') === '0' ? 0 : 1,
+    print: function (s) { logline(s); console.log(s); },
+    printErr: function (s) { logline(s); console.warn(s); },
+    onRuntimeInitialized: function () { document.getElementById('loading').classList.add('hidden'); canvas.focus(); setTimeout(function () { document.getElementById('help').classList.add('hidden'); }, 12000); },
+    setStatus: function (t) { var el = document.getElementById('loading-text'); if (el && t) el.textContent = t; },
+    onStats: function (mips, fps, regions, fb, failed) { window.__stats = { mips: mips, fps: fps, regions: regions, failed: failed }; document.getElementById('hud').textContent = fps.toFixed(1) + ' fps · ' + mips.toFixed(0) + ' MIPS · JIT ' + regions; },
+    onNet: function (t) {
+      var el = document.getElementById('net'), m = /^peers (\d+)/.exec(t);
+      el.classList.add('on');
+      clearTimeout(el.__t);
+      el.__t = setTimeout(function () { el.classList.remove('on'); }, 5000);
+      if (m) el.textContent = 'Network: ' + m[1] + ' player(s)';
+      else if (t === 'offline') el.textContent = 'Network: no relay server (see server/README.md)';
+      else if (t === 'online') el.textContent = 'Network: connected';
+    },
+    onEmuExit: function () { document.getElementById('hud').textContent = 'game exited'; },
+    onAbort: function (r) { document.getElementById('loading-text').textContent = 'Error: ' + r; }
+  };
+</script>
+<script src="config.js"></script>
+<script src="carma2data.js"></script>
+<script async src="carma2hy.js"></script>
+</body>
+</html>

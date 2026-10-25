@@ -1,0 +1,13 @@
+[Unit]
+Description=Carmageddon II web relay
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/node /opt/carma2/server/relay.js --host 127.0.0.1 --port 8080
+Restart=always
+RestartSec=3
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+AddType application/wasm .wasm
+AddType text/javascript .js
+<FilesMatch "\.data\.[0-9]{3}$">
+  ForceType application/octet-stream
+</FilesMatch>
+<IfModule mod_headers.c>
+  <FilesMatch "\.data\.[0-9]{3}$">
+    Header set Cache-Control "public, max-age=2592000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.(html|js|wasm)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/javascript application/javascript application/wasm
+</IfModule>

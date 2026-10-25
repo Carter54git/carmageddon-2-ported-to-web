@@ -1,0 +1,48 @@
+server {
+    listen 80;
+    server_name carma.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name carma.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/carma.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/carma.example.com/privkey.pem;
+
+    root /opt/carma2/site;
+    index index.html;
+
+    types {
+        text/html                html;
+        text/javascript          js;
+        application/wasm         wasm;
+        application/octet-stream 000 001 002 003 004 005 006 007 008 009 010 011 012 013 014 015;
+        audio/ogg                ogg;
+        audio/mpeg               mp3;
+        audio/wav                wav;
+    }
+
+    gzip on;
+    gzip_types text/javascript application/wasm;
+
+    location ~ \.data\.[0-9]{3}$ {
+        add_header Cache-Control "public, max-age=2592000, immutable";
+    }
+
+    location ~ \.(html|js|wasm)$ {
+        add_header Cache-Control "no-cache";
+    }
+
+    location = /net {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
+    }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "carma2-web-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Carmageddon II web: network game relay and static file server",
+  "main": "relay.js",
+  "scripts": {
+    "start": "node relay.js"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}
